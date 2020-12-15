@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 // _private_networks = [
 //     IPv4Network('0.0.0.0/8'),
@@ -19,28 +20,6 @@
 //     IPv4Network('255.255.255.255/32'),
 //     ]
 
-void int2bin(int number, int *reverse)
-{
-    int count_bit = 0;
-    int number_original = number;
-    while (number)
-    {
-        count_bit++;
-        number >>= 1;
-    }
-    int direct[count_bit];
-    int j, i;
-    for (i = 0; number_original > 0; i++)
-    {
-        direct[i] = number_original % 2;
-        number_original = number_original / 2;
-    }
-    for (j = 0; j < count_bit; j++)
-    {
-        reverse[j] = direct[i - (j + 1)];
-    }
-}
-
 /*--------------------------------------*/
 /* Compute netmask address given prefix */
 /*--------------------------------------*/
@@ -51,16 +30,29 @@ int prefix2netmask(int prefix)
     return EXIT_SUCCESS;
 }
 
-void summarize_address_range(unsigned long first, unsigned long last)
-{
-    /**
-     * Example:
-     * summarize_address_range("192.168.1.0", "192.168.1.1")
-     * return "192.168.1.0/31"
-    */
-}
+// void summarize_address_range(unsigned long first, unsigned long last)
+// {
+//     /**
+//      * Example:
+//      * summarize_address_range("192.168.1.0", "192.168.1.1")
+//      * return "192.168.1.0/31"
+//     */
+// }
 
-void ip_to_int(char *ip_address)
+// int ip2int2(const char* ip)
+// {
+//     char* s = strdup(ip);
+//     char* t = strtok(s, ".");
+//     int num = 0;
+//     while (t) {
+//         num = num*256 + atoi(t);
+//         t = strtok(NULL, ".");
+//     }
+//     free(s);
+//     return num;
+// }
+
+void ip_to_int(char *cidr, unsigned int *start_cidr_range, unsigned int *end_cidr_range)
 {
     /**
      * Convert IPv4 to int
@@ -69,33 +61,49 @@ void ip_to_int(char *ip_address)
      * OUT: 3232235777
      * TO-BIN: 11000000 10101000 00000001 00000001
      * */
-    char *delim = strtok(ip_address, ".");
+    char *delim = strtok(cidr, "./");
     int octet = 0;
-    int prefix;
-    char buff[32];
+    int val;
     while (delim != NULL)
     {
-        printf("DELIM %s\n", delim);
-        delim = atoi(delim);
         octet++;
-        if (octet == 5)
+        val = atoi(delim);
+        switch (octet)
         {
-            prefix = atoi(delim);
-            prefix2netmask(prefix);
-            delim = strtok(NULL, "./");
-            continue;
-        }
-        int *p;
-        int max_octet_len = 8;
-        int binary[max_octet_len];
-        int val = atoi(delim);
-        int2bin(192, &binary[0]);
-        for (int i = 0; i < max_octet_len; i++)
-        {
-            printf("value of arr[%d] is %d\n", i, binary[i]);
+        case 1:
+            *start_cidr_range = val << 24;
+            break;
+        case 2:
+            *start_cidr_range |= val << 16;
+            break;
+        case 3:
+            *start_cidr_range |= val << 8;
+            break;
+        case 4:
+            *start_cidr_range |= val << 0;
+            break;
+        case 5:
+            // val = netmask(/32)
+            *end_cidr_range = *start_cidr_range + pow(2, (32 - val)) - 1;
+            break;
+
+        default:
+            printf("Ошибка, указан неверный октет");
         }
         delim = strtok(NULL, "./");
     }
+}
+
+unsigned char *int_to_ip(unsigned int ip)
+{
+    char *ip_cidr = NULL;
+    unsigned int a, b, c, d;
+    a = ip;                              // 2**24
+    b = (ip - a * 16777216);             // 2**16
+    c = (ip - a * 16777216 - b * 65536); // 2**8
+    d = (ip - a * 16777216 - b * 65536 - c * 256);
+    printf("%u.%u.%u.%u", a, b, c, d);
+    return ip_cidr;
 }
 
 int main()
@@ -103,9 +111,12 @@ int main()
     char *line = NULL;
     int len = 0;
     int lineSize = 0;
+    unsigned int start_cidr_range = 0;
+    unsigned int stop_cidr_range = 0;
     while (lineSize = getline(&line, &len, stdin) != -1)
     {
-        ip_to_int(line);
+        ip_to_int(line, &start_cidr_range, &stop_cidr_range);
+        printf("Array %u/%u\n", start_cidr_range, stop_cidr_range);
     }
     free(line);
     exit(EXIT_SUCCESS);
