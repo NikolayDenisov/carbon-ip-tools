@@ -6,7 +6,7 @@
         "type": "shell",
         "label": "C/C++ build active file",
         "command": "/usr/bin/gcc",
-        "args": ["-g", "${file}", "-o", "${fileDirname}/${fileBasenameNoExtension}"],
+        "args": ["-g", "${file}", "-lm", "-o", "${fileDirname}/${fileBasenameNoExtension}"],
         "options": {
           "cwd": "/usr/bin"
         },

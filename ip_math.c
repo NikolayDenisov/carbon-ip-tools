@@ -181,11 +181,10 @@ static char *dotted[] = {
     "240", "241", "242", "243", "244", "245", "246", "247", "248", "249",
     "250", "251", "252", "253", "254", "255"};
 
-void print_address(unsigned int net, unsigned char pref)
+void print_address(unsigned int subnet, int prefix)
 {
     char buf[23 + 2];
     int pos = 0, len;
-    printf("net = %u pref = %s\n", net, pref);
     // pos += STRCPY(buf + pos, dotted[net >> 24]);
     // buf[pos++] = '.';
     // pos += STRCPY(buf + pos, dotted[(net & 0xff000000) >> 16]);
@@ -210,42 +209,49 @@ char *my_itoa(unsigned int num, char *str)
     return str;
 }
 
-void print_addresses(struct network *addr, unsigned int size)
+void print_addresses(struct network *subnets, unsigned int size)
 {
     int i = 0, pos = 0, len;
     char buf[8192 * 8];
     char prefix[2];
     while (i < size)
     {
-        printf("I = %d\n", i);
-        printf("addr[i].prefix = %d\n", addr[i].prefix);
-        my_itoa(addr[i].prefix, prefix);
-        printf("addr[i].first = %u\n", addr[i].first);
-        print_address(addr[i].first, prefix);
+        printf("%u/%d\n", subnets[i].first, subnets[i].prefix);
+        print_address(subnets[i].first, subnets[i].prefix);
         i++;
     }
 }
 
 int main()
 {
-    char *line = NULL;
-    unsigned int len = 0;
     unsigned int first = 0;
     int prefix = 0;
     unsigned int size = 0;
     struct network *subnets;
     unsigned int index = 0;
-    while (getline(&line, &len, stdin) != -1)
+
+    FILE *fp;
+    char *line = NULL;
+    size_t len = 0;
+    unsigned long read;
+
+    fp = fopen("/home/nick/projects/carbon-ip-tools/data.txt", "r");
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+
+    while ((read = getline(&line, &len, fp)) != -1)
     {
         ip_to_int(line, &first, &prefix);
         subnets[index].first = first;
         subnets[index].prefix = prefix;
         index++;
     }
+    fclose(fp);
+    if (line)
+        free(line);
     printf("index = %u\n", index);
     summarize_address_range(subnets, index);
     printf("SIZE = %u\n", size);
     print_addresses(subnets, index);
-    free(line);
     exit(EXIT_SUCCESS);
 }
