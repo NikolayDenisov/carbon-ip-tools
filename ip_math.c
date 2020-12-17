@@ -33,8 +33,38 @@ unsigned int summarize_address_range(struct network *subnets, unsigned int len)
     cur = 1;
     while (cur < len)
     {
+        if (subnets[base].first == subnets[cur].first && subnets[base].last == subnets[cur].last)
+        {
+            printf("identical\n");
+        }
+        if (subnets[base].first >= subnets[cur].first && subnets[base].last <= subnets[cur].last)
+        {
+            printf("a completely inside b\n");
+            printf("%u-%u\n", subnets[cur].first, subnets[cur].last);
+            subnets[base].first = subnets[cur].first;
+            subnets[base].last = subnets[cur].last;
+        }
+        if (subnets[cur].first >= subnets[base].first && subnets[cur].last <= subnets[base].last)
+        {
+            printf("# b completely inside a\n");
+        }
+        if (subnets[base].first < subnets[cur].first && subnets[base].last < subnets[cur].last && subnets[cur].first <= (subnets[base].last + 1))
+        {
+            printf("bbbb  <- a/b overlap or immediately adjacent\n");
+            printf("%u-%u\n", subnets[base].first, subnets[cur].last);
+            subnets[base].first = subnets[base].first;
+            subnets[base].last = subnets[cur].last;
+        }
+        if (subnets[cur].first < subnets[base].first && subnets[cur].last < subnets[base].last && subnets[base].first <= (subnets[cur].last + 1))
+        {
+            printf("bbbb    <- b/a overlap or immediately adjacent\n");
+            printf("%u-%u\n", subnets[cur].first, subnets[base].last);
+            subnets[base].first = subnets[cur].first;
+            subnets[base].last = subnets[base].last;
+        }
+        cur++;
+        base++;
     }
-
     return EXIT_SUCCESS;
 }
 
