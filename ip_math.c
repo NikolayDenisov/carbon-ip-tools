@@ -130,7 +130,6 @@ int main()
     int prefix = 0;
     unsigned int size = 0;
     struct network *subnets;
-    struct network *result;
     unsigned int index = 0;
 
     FILE *fp;
@@ -156,18 +155,26 @@ int main()
         free(line);
     unsigned int a, b;
     a = 0;
-    while (a < len)
+    b = 1;
+    unsigned int reverse;
+    reverse = 0;
+    while (b < index + 1)
     {
-        printf("base.first = %u base.last = %u cur.first = %u cur.last = %u\n", subnets[a].first, subnets[a].last, subnets[b].first, subnets[b].last);
+        printf("base.first = %u base.last = %u\n", subnets[a].first, subnets[a].last);
         if (subnets[a].first < subnets[b].first && subnets[a].last < subnets[b].last && subnets[b].first <= (subnets[a].last + 1))
         {
-            result[a].first = subnets[a].first;
-            result[a].last = subnets[a+1].last;
-            a++;
+            subnets[a].last = subnets[b].last;
+            subnets[b] = subnets[b + 1];
+            b++;
             continue;
         }
-        result[a] = subnets[a];
         a++;
+        subnets[a] = subnets[b];
+        b++;
+    }
+    while (a > reverse)
+    {
+        reverse++;
     }
     exit(EXIT_SUCCESS);
 }
