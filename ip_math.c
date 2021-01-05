@@ -1,7 +1,7 @@
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <math.h>
 
 struct network
 {
@@ -28,42 +28,43 @@ unsigned int prefix2int(int prefix)
 
 unsigned int summarize_address_range(struct network *subnets, unsigned int len)
 {
-    unsigned int base, cur;
-    base = 0;
-    cur = 1;
-    while (cur < len)
+    unsigned int a, b;
+    a = 0;
+    b = 1;
+    while (b < len)
     {
-        if (subnets[base].first == subnets[cur].first && subnets[base].last == subnets[cur].last)
+        printf("base.first = %u base.last = %u cur.first = %u cur.last = %u\n", subnets[a].first, subnets[a].last, subnets[b].first, subnets[b].last);
+        if (subnets[a].first == subnets[b].first && subnets[a].last == subnets[b].last)
         {
-            printf("identical\n");
+            printf("IP уже есть в списке\n");
+            b++;
+            a++;
+            continue;
         }
-        if (subnets[base].first >= subnets[cur].first && subnets[base].last <= subnets[cur].last)
+        if (subnets[a].first >= subnets[b].first && subnets[a].last <= subnets[b].last)
         {
-            printf("a completely inside b\n");
-            printf("%u-%u\n", subnets[cur].first, subnets[cur].last);
-            subnets[base].first = subnets[cur].first;
-            subnets[base].last = subnets[cur].last;
+            printf("a внутри b\n");
+            subnets[a].first = subnets[b].first;
+            subnets[a].last = subnets[b].last;
         }
-        if (subnets[cur].first >= subnets[base].first && subnets[cur].last <= subnets[base].last)
+        if (subnets[b].first >= subnets[a].first && subnets[b].last <= subnets[a].last)
         {
-            printf("# b completely inside a\n");
+            printf("# b внутри a\n");
         }
-        if (subnets[base].first < subnets[cur].first && subnets[base].last < subnets[cur].last && subnets[cur].first <= (subnets[base].last + 1))
+        if (subnets[a].first < subnets[b].first && subnets[a].last < subnets[b].last && subnets[b].first <= (subnets[a].last + 1))
         {
             printf("bbbb  <- a/b overlap or immediately adjacent\n");
-            printf("%u-%u\n", subnets[base].first, subnets[cur].last);
-            subnets[base].first = subnets[base].first;
-            subnets[base].last = subnets[cur].last;
+            subnets[a].first = subnets[a].first;
+            subnets[a].last = subnets[b].last;
         }
-        if (subnets[cur].first < subnets[base].first && subnets[cur].last < subnets[base].last && subnets[base].first <= (subnets[cur].last + 1))
+        if (subnets[b].first < subnets[a].first && subnets[b].last < subnets[a].last && subnets[a].first <= (subnets[b].last + 1))
         {
             printf("bbbb    <- b/a overlap or immediately adjacent\n");
-            printf("%u-%u\n", subnets[cur].first, subnets[base].last);
-            subnets[base].first = subnets[cur].first;
-            subnets[base].last = subnets[base].last;
+            subnets[a].first = subnets[b].first;
+            subnets[a].last = subnets[a].last;
         }
-        cur++;
-        base++;
+        b++;
+        a++;
     }
     return EXIT_SUCCESS;
 }
@@ -129,6 +130,7 @@ int main()
     int prefix = 0;
     unsigned int size = 0;
     struct network *subnets;
+    struct network *result;
     unsigned int index = 0;
 
     FILE *fp;
@@ -147,7 +149,7 @@ int main()
         subnets[index].last = last;
         subnets[index].prefix = prefix;
         index++;
-        printf("first = %u last = %u prefix = %d\n", first, last, prefix);
+        // printf("first = %u last = %u prefix = %d\n", first, last, prefix);
     }
     fclose(fp);
     if (line)
