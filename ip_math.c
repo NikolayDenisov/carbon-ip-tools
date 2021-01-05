@@ -154,6 +154,20 @@ int main()
     fclose(fp);
     if (line)
         free(line);
-    summarize_address_range(subnets, index);
+    unsigned int a, b;
+    a = 0;
+    while (a < len)
+    {
+        printf("base.first = %u base.last = %u cur.first = %u cur.last = %u\n", subnets[a].first, subnets[a].last, subnets[b].first, subnets[b].last);
+        if (subnets[a].first < subnets[b].first && subnets[a].last < subnets[b].last && subnets[b].first <= (subnets[a].last + 1))
+        {
+            result[a].first = subnets[a].first;
+            result[a].last = subnets[a+1].last;
+            a++;
+            continue;
+        }
+        result[a] = subnets[a];
+        a++;
+    }
     exit(EXIT_SUCCESS);
 }
