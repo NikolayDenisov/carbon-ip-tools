@@ -29,49 +29,6 @@ unsigned int prefix2int(int prefix)
     return mask;
 }
 
-unsigned int summarize_address_range(struct network *subnets, unsigned int len)
-{
-    unsigned int a, b;
-    a = 0;
-    b = 1;
-    while (b < len)
-    {
-        printf("base.first = %u base.last = %u cur.first = %u cur.last = %u\n", subnets[a].first, subnets[a].last, subnets[b].first, subnets[b].last);
-        if (subnets[a].first == subnets[b].first && subnets[a].last == subnets[b].last)
-        {
-            printf("IP уже есть в списке\n");
-            b++;
-            a++;
-            continue;
-        }
-        if (subnets[a].first >= subnets[b].first && subnets[a].last <= subnets[b].last)
-        {
-            printf("a внутри b\n");
-            subnets[a].first = subnets[b].first;
-            subnets[a].last = subnets[b].last;
-        }
-        if (subnets[b].first >= subnets[a].first && subnets[b].last <= subnets[a].last)
-        {
-            printf("# b внутри a\n");
-        }
-        if (subnets[a].first < subnets[b].first && subnets[a].last < subnets[b].last && subnets[b].first <= (subnets[a].last + 1))
-        {
-            printf("bbbb  <- a/b overlap or immediately adjacent\n");
-            subnets[a].first = subnets[a].first;
-            subnets[a].last = subnets[b].last;
-        }
-        if (subnets[b].first < subnets[a].first && subnets[b].last < subnets[a].last && subnets[a].first <= (subnets[b].last + 1))
-        {
-            printf("bbbb    <- b/a overlap or immediately adjacent\n");
-            subnets[a].first = subnets[b].first;
-            subnets[a].last = subnets[a].last;
-        }
-        b++;
-        a++;
-    }
-    return EXIT_SUCCESS;
-}
-
 void ip_to_int(char *cidr, unsigned int *first, unsigned int *last, int *prefixlen)
 {
     /**
