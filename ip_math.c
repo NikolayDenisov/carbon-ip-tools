@@ -112,16 +112,16 @@ void ip_to_int(char *cidr, unsigned int *first, unsigned int *last, int *prefixl
     }
 }
 
-unsigned char *int_to_ip(unsigned int ip)
+static char *int_to_ip(unsigned int num)
 {
-    char *ip_cidr = NULL;
-    unsigned int a, b, c, d;
-    a = ip;                              // 2**24
-    b = (ip - a * 16777216);             // 2**16
-    c = (ip - a * 16777216 - b * 65536); // 2**8
-    d = (ip - a * 16777216 - b * 65536 - c * 256);
-    printf("%u.%u.%u.%u", a, b, c, d);
-    return ip_cidr;
+    char *ipstr = (char *)malloc(15);
+    unsigned int nums[4];
+    for (int i = 0; i < 4; i++)
+    {
+        nums[i] = (num >> ((3 - i) * 8)) & 0xFF;
+    }
+    printf("%d.%d.%d.%d", nums[0], nums[1], nums[2], nums[3]);
+    return ipstr;
 }
 
 int main()
@@ -172,8 +172,14 @@ int main()
         subnets[a] = subnets[b];
         b++;
     }
+    unsigned int range = 0;
     while (a > reverse)
     {
+        range = (subnets[reverse].last - subnets[reverse].first) + 1;
+        if (range == 1)
+        {
+            int_to_ip(subnets[reverse].first);
+        }
         reverse++;
     }
     exit(EXIT_SUCCESS);
