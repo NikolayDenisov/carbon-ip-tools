@@ -112,16 +112,16 @@ void ip_to_int(char *cidr, unsigned int *first, unsigned int *last, int *prefixl
     }
 }
 
-static char *int_to_ip(unsigned int num)
+void int_to_ip(unsigned int num)
 {
     char *ipstr = (char *)malloc(15);
-    unsigned int nums[4];
-    for (int i = 0; i < 4; i++)
-    {
-        nums[i] = (num >> ((3 - i) * 8)) & 0xFF;
-    }
-    printf("%d.%d.%d.%d", nums[0], nums[1], nums[2], nums[3]);
-    return ipstr;
+    int a, b, c, d = 0;
+    a = (num >> 24) & 255;
+    b = (num >> 16) & 255;
+    c = (num >> 8) & 255;
+    d = num & 255;
+    snprintf(ipstr, 15, "%d.%d.%d.%d", a, b, c, d);
+    printf("%s\n", ipstr);
 }
 
 int main()
