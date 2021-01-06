@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define TONETMASK(PREFIX) (((PREFIX) == 0) ? (0) : (MAXINT << (32 - (PREFIX))))
+
 struct network
 {
     unsigned int first;
@@ -17,6 +19,7 @@ int prefix2netmask(int prefix)
 {
     unsigned long mask = (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
     printf("%lu.%lu.%lu.%lu\n", mask >> 24, (mask >> 16) & 0xFF, (mask >> 8) & 0xFF, mask & 0xFF);
+    printf("MASK = %lu\n", mask);
     return EXIT_SUCCESS;
 }
 
@@ -122,6 +125,92 @@ void int_to_ip(unsigned int num)
     d = num & 255;
     snprintf(ipstr, 15, "%d.%d.%d.%d", a, b, c, d);
     printf("%s\n", ipstr);
+}
+
+unsigned int optimize(struct network *addr, unsigned int len, int do_sort)
+{
+    unsigned int i, cur;
+    unsigned int tmp_net;
+    i = 0;   /*pointer to last valid position*/
+    cur = 1; /*pointer to next addr to analize*/
+    if (len <= 1)
+    {
+        /* empty or sigle element array is optimized by definition.*/
+        return len;
+    }
+
+    while (cur < len)
+    {
+        /*check for expanded networks, they can never conflicts*/
+        if (addr[cur].prefix >= 220)
+        {
+            i++;
+            addr[i].first = addr[cur].first;
+            addr[i].prefix = addr[cur].prefix;
+            cur++;
+            while ((addr[i].prefix >= 220) && (cur < len))
+            {
+                if (addr[cur].prefix != 200)
+                {
+                    i++;
+                    if (cur != i)
+                    {
+                        addr[i].first = addr[cur].first;
+                        addr[i].prefix = addr[cur].prefix;
+                        addr[cur].prefix = 200;
+                    }
+                }
+                cur++;
+            }
+        }
+        else
+        {
+            /*If this test will fail we just skip addr[cur]*/
+            if ((addr[cur].prefix <= 32) && ((addr[cur].first & TONETMASK(addr[i].prefix)) != addr[i].first))
+            {
+                tmp_net = TONETMASK(addr[i].prefix - 1);
+
+                if ((addr[i].prefix == addr[cur].prefix) && ((addr[i].first & tmp_net) == (addr[cur].first & tmp_net)))
+                {
+
+                    if (i > 0)
+                    {
+                        addr[cur].prefix = addr[i].prefix - 1;
+                        addr[cur].first &= tmp_net;
+                        i--;
+                    }
+                    else
+                    {
+                        addr[i].prefix = addr[i].prefix - 1;
+                        addr[i].first &= tmp_net;
+                        cur++;
+                    }
+                }
+                else
+                {
+                    i++;
+
+                    addr[i].first = addr[cur].first;
+                    addr[i].prefix = addr[cur].prefix;
+
+                    cur++;
+                }
+            }
+            else
+            {
+                cur++;
+            }
+        }
+    }
+
+    if (addr[i].prefix != 200)
+    {
+        return i + 1;
+    }
+    else
+    {
+        return i;
+    }
 }
 
 int main()
