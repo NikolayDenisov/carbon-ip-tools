@@ -179,11 +179,6 @@ int get_entries(STREAM f, struct network **subnets, unsigned int *size) {
                 n++;
                 if (n != MAXLINE) {
                     start++;
-                } else {
-                    fprintf(stderr,
-                            "Error, line too long, taking first %d chars\n",
-                            MAXLINE);
-                    buf[start] = '\n';
                 }
             }
             if (end > start) {
@@ -196,10 +191,6 @@ int get_entries(STREAM f, struct network **subnets, unsigned int *size) {
                 start = 0;
                 end = READ(f, buf, BUFFER);
                 if (end <= 0) {
-                    if (!N_EOF(f, end)) {
-                        fprintf(stderr, "Error reading file, aborting\n");
-                        exit(1);
-                    }
                     quit = 1;
                     line[n] = '\0';
                     stop = 1;
@@ -211,25 +202,9 @@ int get_entries(STREAM f, struct network **subnets, unsigned int *size) {
             *size += BUCKET;
             *subnets = (struct network *)realloc(
                 *subnets, sizeof(struct network) * (*size));
-            if (subnets == NULL) {
-                fprintf(stderr, "Error allocating %lu bytes\n",
-                        (unsigned long)sizeof(struct network) * (*size));
-                exit(1);
-            }
         }
-
-        if (!parse_line(line, &((*subnets)[i]))) {
-            int line_len;
-            n = STRCPY(error, "Invalid line ");
-            line_len = STRCPY(error + n, line);
-            n += line_len;
-            n += STRCPY(error + n, "\n");
-            if (line_len > 0) {
-                WRITE(STDERR, error, n);
-            }
-        } else {
-            i++;
-        }
+        parse_line(line, &((*subnets)[i]));
+        i++;
     }
     return i;
 }
@@ -242,7 +217,6 @@ int main() {
     len1 = get_entries(STDIN, &subnets, &size1);
     unsigned int a, subnet_cnt_f;
     a = 0;
-    // TODO0 fix empty line mistake
     subnet_cnt_f = optimize(subnets, len1 - 1);
     while (a < subnet_cnt_f) {
         print_cidr(subnets[a].network, subnets[a].prefix);
