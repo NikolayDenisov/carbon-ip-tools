@@ -28,8 +28,7 @@ struct network {
     int prefix;
 };
 
-void ip_to_int(char *cidr, unsigned int *first, unsigned int *last,
-               int *prefixlen) {
+void ip_to_int(char *cidr, unsigned int *network, int *prefix) {
     /**
      *  IPv4-подсеть можно разбить на диапазон целых чисел.
      * Например, 192.168.1.0/31 это диапазон от 3232235776 до 3232235777
@@ -38,34 +37,45 @@ void ip_to_int(char *cidr, unsigned int *first, unsigned int *last,
      * last_cidr_int = 3232235777
      * prefixlen = 31
      * */
-    char *delim = strtok(cidr, "./");
-    int octet = 0;
-    int val;
-    while (delim != NULL) {
-        octet++;
-        val = atoi(delim);
-        switch (octet) {
-            case 1:
-                *first = val << 24;
-                break;
-            case 2:
-                *first |= val << 16;
-                break;
-            case 3:
-                *first |= val << 8;
-                break;
-            case 4:
-                *first |= val << 0;
-                break;
-            case 5:
-                *last = *first + pow(2, (32 - val)) - 1;
-                *prefixlen = val;
-                break;
-            default:
-                printf("Ошибка, указан неверный октет");
+    int i, n = 0;
+    int j = 0;
+    char a[4] = "\0";
+    char b[4] = "\0";
+    char c[4] = "\0";
+    char d[4] = "\0";
+    char netmask[3];
+    for (i = 0; cidr[i] != '\0'; i++) {
+        if (cidr[i] == 46) {
+            n++;
+            j = 0;
+            continue;
+        } else if (cidr[i] == 47) {
+            n = 4;
+            j = 0;
+            continue;
         }
-        delim = strtok(NULL, "./");
+        if (n == 0) {
+            a[j] = cidr[i];
+            j++;
+        } else if (n == 1) {
+            b[j] = cidr[i];
+            j++;
+        } else if (n == 2) {
+            c[j] = cidr[i];
+            j++;
+        } else if (n == 3) {
+            d[j] = cidr[i];
+            j++;
+        } else if (n == 4) {
+            netmask[j] = cidr[i];
+            j++;
+        }
     }
+    printf("L = %s a = %s, b = %s, c = %s, d = %s\n", cidr, a, b, c, d);
+    printf("ATOI L = %s a = %d, b = %d, c = %d, d = %d\n", cidr, atoi(a), atoi(b), atoi(c), atoi(d));
+    *network = ((atoi(a) << 24) + (atoi(b) << 16) + (atoi(c) << 8) + atoi(d));
+    printf("NETWORK = %u")
+    *prefix = atoi(netmask);
 }
 
 static char *int_to_ip(unsigned int num) {
@@ -153,19 +163,25 @@ static int STRCPY(char *dst, char *src) {
 static int parse_line(char *line, struct network *res) {
     unsigned int first, last = 0;
     int prefix = 0;
-    ip_to_int(line, &first, &last, &prefix);
-    res->network = first;
+    unsigned int net = 0;
+    if (*line == '\0') {
+        return 0;
+    }
+    ip_to_int(line, &net, &prefix);
+    res->network = net;
     res->prefix = prefix;
     return 1;
 }
 
-int get_entries(STREAM f, struct network **subnets, unsigned int *size) {
+int get_entries(STREAM f, struct network **addr, unsigned int *size) {
     unsigned int i;
     int start = 0, end = 0, n, stop, quit;
     char buf[BUFFER];
     char line[MAXLINE + 1];
     char error[MAXLINE + 50];
+
     i = *size = 0;
+
     quit = 0;
     while (!quit) {
         /*buffered read */
@@ -179,6 +195,11 @@ int get_entries(STREAM f, struct network **subnets, unsigned int *size) {
                 n++;
                 if (n != MAXLINE) {
                     start++;
+                } else {
+                    fprintf(stderr,
+                            "Error, line too long, taking first %d chars\n",
+                            MAXLINE);
+                    buf[start] = '\n';
                 }
             }
             if (end > start) {
@@ -191,6 +212,10 @@ int get_entries(STREAM f, struct network **subnets, unsigned int *size) {
                 start = 0;
                 end = READ(f, buf, BUFFER);
                 if (end <= 0) {
+                    if (!N_EOF(f, end)) {
+                        fprintf(stderr, "Error reading file, aborting\n");
+                        exit(1);
+                    }
                     quit = 1;
                     line[n] = '\0';
                     stop = 1;
@@ -198,13 +223,30 @@ int get_entries(STREAM f, struct network **subnets, unsigned int *size) {
             }
         }
         /* end buffered read */
+
         if (*size <= i) {
             *size += BUCKET;
-            *subnets = (struct network *)realloc(
-                *subnets, sizeof(struct network) * (*size));
+            *addr = (struct network *)realloc(*addr,
+                                              sizeof(struct network) * (*size));
+            if (addr == NULL) {
+                fprintf(stderr, "Error allocating %lu bytes\n",
+                        (unsigned long)sizeof(struct network) * (*size));
+                exit(1);
+            }
         }
-        parse_line(line, &((*subnets)[i]));
-        i++;
+
+        if (!parse_line(line, &((*addr)[i]))) {
+            int line_len;
+            n = STRCPY(error, "Invalid line ");
+            line_len = STRCPY(error + n, line);
+            n += line_len;
+            n += STRCPY(error + n, "\n");
+            if (line_len > 0) {
+                WRITE(STDERR, error, n);
+            }
+        } else {
+            i++;
+        }
     }
     return i;
 }
@@ -217,7 +259,7 @@ int main() {
     len1 = get_entries(STDIN, &subnets, &size1);
     unsigned int a, subnet_cnt_f;
     a = 0;
-    subnet_cnt_f = optimize(subnets, len1 - 1);
+    subnet_cnt_f = optimize(subnets, len1);
     while (a < subnet_cnt_f) {
         print_cidr(subnets[a].network, subnets[a].prefix);
         a++;
