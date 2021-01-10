@@ -2,9 +2,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 #define MAXINT 0xffffffff
-#define TONETMASK(PREFIX) (((PREFIX) == 0) ? (0) : (MAXINT << (32 - (PREFIX))))
+static unsigned int prefix_table[] = {
+    0x0,        0x80000000, 0xc0000000, 0xe0000000, 0xf0000000, 0xf8000000,
+    0xfc000000, 0xfe000000, 0xff000000, 0xff800000, 0xffc00000, 0xffe00000,
+    0xfff00000, 0xfff80000, 0xfffc0000, 0xfffe0000, 0xffff0000, 0xffff8000,
+    0xffffc000, 0xffffe000, 0xfffff000, 0xfffff800, 0xfffffc00, 0xfffffe00,
+    0xffffff00, 0xffffff80, 0xffffffc0, 0xffffffe0, 0xfffffff0, 0xfffffff8,
+    0xfffffffc, 0xfffffffe, 0xffffffff};
+
+#define TONETMASK(PREFIX) prefix_table[PREFIX]
 
 #define STREAM FILE *
 #define STDIN (stdin)
@@ -24,9 +33,32 @@
 
 struct network {
     unsigned int network;
-    unsigned int last;
-    int prefix;
+#ifdef CHAR_PREFIX
+    unsigned char prefix;
+#else
+    unsigned int prefix;
+#endif
 };
+
+void ip2int(const char *s, unsigned int *n) {
+    unsigned int i, j, t;
+    t = 0;
+    for (i = 0, j = 0;; i++) {
+        if (s[i] == '.') {
+            j = (j << 8) + t;
+            t = 0;
+        } else if (s[i] == '\0') {
+            j = (j << 8) + t;
+            t = 0;
+            break;  //终止条件
+        } else {
+            t = t * 10 + (s[i] - '0');
+        }
+    }
+    *n = j;
+    printf("J: %d ", j);
+    return;
+}
 
 void ip_to_int(char *cidr, unsigned int *network, int *prefix) {
     /**
@@ -71,21 +103,19 @@ void ip_to_int(char *cidr, unsigned int *network, int *prefix) {
             j++;
         }
     }
-    printf("L = %s a = %s, b = %s, c = %s, d = %s\n", cidr, a, b, c, d);
-    printf("ATOI L = %s a = %d, b = %d, c = %d, d = %d\n", cidr, atoi(a), atoi(b), atoi(c), atoi(d));
-    *network = ((atoi(a) << 24) + (atoi(b) << 16) + (atoi(c) << 8) + atoi(d));
-    printf("NETWORK = %u")
+    *network = ((atoi(a) << 24) + (atoi(b) << 16) + (atoi(c) << 8) +
+    atoi(d));
     *prefix = atoi(netmask);
 }
 
 static char *int_to_ip(unsigned int num) {
-    char *ipstr = (char *)malloc(15);
+    char *ipstr = (char *)malloc(16);
     int a, b, c, d = 0;
     a = (num >> 24) & 255;
     b = (num >> 16) & 255;
     c = (num >> 8) & 255;
     d = num & 255;
-    snprintf(ipstr, 15, "%d.%d.%d.%d", a, b, c, d);
+    snprintf(ipstr, 16, "%d.%d.%d.%d", a, b, c, d);
     return ipstr;
 }
 
@@ -160,16 +190,100 @@ static int STRCPY(char *dst, char *src) {
     return i;
 }
 
+static unsigned char collect_octet(char *line, int current_position,
+                                   int *end_position) {
+    unsigned int number = 0;
+
+    *end_position = current_position;
+    while (line[current_position] >= '0' && line[current_position] <= '9') {
+        number *= 10;
+        number += line[current_position] - 48;
+        current_position++;
+    }
+
+    /*update return pointer only if it's a valid octect*/
+    if (number < 256) {
+        *end_position = current_position;
+    }
+
+    return number;
+}
+
 static int parse_line(char *line, struct network *res) {
-    unsigned int first, last = 0;
-    int prefix = 0;
-    unsigned int net = 0;
-    if (*line == '\0') {
+    int i, n;
+    int end = -1, stop = 0;
+
+    i = 0;
+    n = 24;
+    res->network = 0;
+    res->prefix = 220;
+
+    while ((n >= 0) && !stop) {
+        res->network |= collect_octet(line, i, &end) << n;
+
+        if ((end == i) && (end > 0)) {
+            if (line[end - 1] == '.') {
+                n += 8;
+            } else {
+                break;
+            }
+        }
+        switch (line[end]) {
+            case '.':
+                if (n > 0) {
+                    i = end + 1;
+                } else {
+                    stop = 1;
+                }
+                break;
+            case '/':
+                if (n == 0) {
+                    i = end + 1;
+                    res->prefix = collect_octet(line, i, &end);
+                    if ((line[end] != '\0') && (line[end] != ' ')) {
+                        res->prefix = 220;
+                    }
+                }
+
+                stop = 1;
+                break;
+            case ' ':
+                /*no break here*/
+                fprintf(stderr,
+                        "WARNING: not considering characters after space in "
+                        "line %s",
+                        line);
+            case '*':
+                if ((line[end] == '*') && (line[end + 1] != '\0')) {
+                    res->prefix = 220;
+                    n = 32;
+                }
+            case '\0':
+                /*				line[end]='\n';
+                                                line[end+1]='\0';
+                                        case '\n':
+                */
+                if (n < 24) {
+                    res->prefix = 32 - n;
+                }
+                stop = 1;
+                break;
+            default:
+                stop = 1;
+                break;
+        }
+        n -= 8;
+    }
+    if (res->prefix > 32) {
         return 0;
     }
-    ip_to_int(line, &net, &prefix);
-    res->network = net;
-    res->prefix = prefix;
+
+    /* final sanity check, very important: library functions will not work if
+     * this costraint is not enforced */
+    if ((res->network & TONETMASK(res->prefix)) != res->network) {
+        return 0;
+    }
+
     return 1;
 }
 
