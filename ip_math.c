@@ -46,9 +46,6 @@ static char *dotted[] = {
     "242", "243", "244", "245", "246", "247", "248", "249", "250", "251", "252",
     "253", "254", "255"};
 
-#define INT2IP(x) \
-    ((x) >> 24) & 0xFF, ((x) >> 16) & 0xFF, ((x) >> 8) & 0xFF, ((x) >> 0) & 0xFF
-
 #define STREAM FILE *
 #define STDIN (stdin)
 #define STDOUT (stdout)
@@ -67,11 +64,7 @@ static char *dotted[] = {
 
 struct network {
     unsigned int network;
-#ifdef CHAR_PREFIX
-    unsigned char prefix;
-#else
     unsigned int prefix;
-#endif
 };
 
 #define MAXCIDR 23
@@ -83,7 +76,12 @@ EXPANDED_PREFIX + 32 must be < 255
 #define INVALID_PREFIX 200
 #define EXPANDED_PREFIX 220
 
-unsigned int optimize(struct network *addr, unsigned int len) {
+unsigned int collapse_addresses(struct network *addr, unsigned int len) {
+    /* Collapse a list of IP objects.
+    Example:
+    Args:
+    Returns:
+    */
     unsigned int i, cur;
     unsigned int tmp_net;
     i = 0;   /*pointer to last valid position*/
@@ -150,8 +148,8 @@ static int STRCPY(char *dst, char *src) {
     return i;
 }
 
-static unsigned char collect_octet(char *line, int current_position,
-                                   int *end_position) {
+static unsigned char parse_octet(char *line, int current_position,
+                                 int *end_position) {
     unsigned int number = 0;
 
     *end_position = current_position;
@@ -169,7 +167,7 @@ static unsigned char collect_octet(char *line, int current_position,
     return number;
 }
 
-static int parse_line(char *line, struct network *res) {
+static int ip_int_from_string(char *line, struct network *res) {
     int i, n;
     int end = -1, stop = 0;
 
@@ -179,7 +177,7 @@ static int parse_line(char *line, struct network *res) {
     res->prefix = 220;
 
     while ((n >= 0) && !stop) {
-        res->network |= collect_octet(line, i, &end) << n;
+        res->network |= parse_octet(line, i, &end) << n;
 
         if ((end == i) && (end > 0)) {
             if (line[end - 1] == '.') {
@@ -199,7 +197,7 @@ static int parse_line(char *line, struct network *res) {
             case '/':
                 if (n == 0) {
                     i = end + 1;
-                    res->prefix = collect_octet(line, i, &end);
+                    res->prefix = parse_octet(line, i, &end);
                     if ((line[end] != '\0') && (line[end] != ' ')) {
                         res->prefix = 220;
                     }
@@ -309,7 +307,7 @@ int get_entries(STREAM f, struct network **addr, unsigned int *size) {
             }
         }
 
-        if (!parse_line(line, &((*addr)[i]))) {
+        if (!ip_int_from_string(line, &((*addr)[i]))) {
             int line_len;
             n = STRCPY(error, "Invalid line ");
             line_len = STRCPY(error + n, line);
@@ -325,8 +323,8 @@ int get_entries(STREAM f, struct network **addr, unsigned int *size) {
     return i;
 }
 
-unsigned int print_address2(unsigned int net, unsigned char pref, char *buf,
-                            unsigned int pos) {
+unsigned int string_from_ip_int(unsigned int net, unsigned char pref, char *buf,
+                                unsigned int pos) {
     if (pref != INVALID_PREFIX) {
         pos += STRCPY(buf + pos, dotted[net >> 24]);
         buf[pos++] = '.';
@@ -357,7 +355,7 @@ void print_addresses(STREAM f, struct network *addr, int size,
 
     while (i < size) {
         if (addr[i].prefix < EXPANDED_PREFIX) {
-            pos = print_address2(addr[i].network, addr[i].prefix, buf, pos);
+            pos = string_from_ip_int(addr[i].network, addr[i].prefix, buf, pos);
             if (pos > BUFFER - MAXCIDR - 2) {
                 len = WRITE(f, buf, pos);
                 if (len < pos) {
@@ -406,15 +404,14 @@ void print_addresses(STREAM f, struct network *addr, int size,
 }
 
 int main() {
-    unsigned int len1 = 0;
+    unsigned int count_all_networks = 0;
     unsigned int size1 = 0;
+    unsigned int count_collapse_addresses;
 
     struct network *subnets = NULL;
-    len1 = get_entries(STDIN, &subnets, &size1);
-    unsigned int a, subnet_cnt_f;
-    a = 0;
-    subnet_cnt_f = optimize(subnets, len1);
-    print_addresses(STDOUT, subnets, subnet_cnt_f, NULL, 0);
+    count_all_networks = get_entries(STDIN, &subnets, &size1);
+    count_collapse_addresses = collapse_addresses(subnets, count_all_networks);
+    print_addresses(STDOUT, subnets, count_collapse_addresses, NULL, 0);
     free(subnets);
     exit(EXIT_SUCCESS);
 }
