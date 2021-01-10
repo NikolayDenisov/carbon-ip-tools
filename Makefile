@@ -14,3 +14,8 @@ ip_math.o :	ip_math.c
 clean :
 	rm -f *.o core
 	rm -f ip_math
+check:
+	cppcheck --template=gcc --enable=warning --std=c11 --force ip_math.c
+
+tests:
+	echo "TODO"
