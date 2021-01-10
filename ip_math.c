@@ -15,6 +15,40 @@ static unsigned int prefix_table[] = {
 
 #define TONETMASK(PREFIX) prefix_table[PREFIX]
 
+#define MASK1 0xff000000
+#define MASK2 0xff0000
+#define MASK3 0xff00
+#define MASK4 0xff
+
+static char *dotted[] = {
+    "0",   "1",   "2",   "3",   "4",   "5",   "6",   "7",   "8",   "9",   "10",
+    "11",  "12",  "13",  "14",  "15",  "16",  "17",  "18",  "19",  "20",  "21",
+    "22",  "23",  "24",  "25",  "26",  "27",  "28",  "29",  "30",  "31",  "32",
+    "33",  "34",  "35",  "36",  "37",  "38",  "39",  "40",  "41",  "42",  "43",
+    "44",  "45",  "46",  "47",  "48",  "49",  "50",  "51",  "52",  "53",  "54",
+    "55",  "56",  "57",  "58",  "59",  "60",  "61",  "62",  "63",  "64",  "65",
+    "66",  "67",  "68",  "69",  "70",  "71",  "72",  "73",  "74",  "75",  "76",
+    "77",  "78",  "79",  "80",  "81",  "82",  "83",  "84",  "85",  "86",  "87",
+    "88",  "89",  "90",  "91",  "92",  "93",  "94",  "95",  "96",  "97",  "98",
+    "99",  "100", "101", "102", "103", "104", "105", "106", "107", "108", "109",
+    "110", "111", "112", "113", "114", "115", "116", "117", "118", "119", "120",
+    "121", "122", "123", "124", "125", "126", "127", "128", "129", "130", "131",
+    "132", "133", "134", "135", "136", "137", "138", "139", "140", "141", "142",
+    "143", "144", "145", "146", "147", "148", "149", "150", "151", "152", "153",
+    "154", "155", "156", "157", "158", "159", "160", "161", "162", "163", "164",
+    "165", "166", "167", "168", "169", "170", "171", "172", "173", "174", "175",
+    "176", "177", "178", "179", "180", "181", "182", "183", "184", "185", "186",
+    "187", "188", "189", "190", "191", "192", "193", "194", "195", "196", "197",
+    "198", "199", "200", "201", "202", "203", "204", "205", "206", "207", "208",
+    "209", "210", "211", "212", "213", "214", "215", "216", "217", "218", "219",
+    "220", "221", "222", "223", "224", "225", "226", "227", "228", "229", "230",
+    "231", "232", "233", "234", "235", "236", "237", "238", "239", "240", "241",
+    "242", "243", "244", "245", "246", "247", "248", "249", "250", "251", "252",
+    "253", "254", "255"};
+
+#define INT2IP(x) \
+    ((x) >> 24) & 0xFF, ((x) >> 16) & 0xFF, ((x) >> 8) & 0xFF, ((x) >> 0) & 0xFF
+
 #define STREAM FILE *
 #define STDIN (stdin)
 #define STDOUT (stdout)
@@ -40,84 +74,14 @@ struct network {
 #endif
 };
 
-void ip2int(const char *s, unsigned int *n) {
-    unsigned int i, j, t;
-    t = 0;
-    for (i = 0, j = 0;; i++) {
-        if (s[i] == '.') {
-            j = (j << 8) + t;
-            t = 0;
-        } else if (s[i] == '\0') {
-            j = (j << 8) + t;
-            t = 0;
-            break;  //终止条件
-        } else {
-            t = t * 10 + (s[i] - '0');
-        }
-    }
-    *n = j;
-    printf("J: %d ", j);
-    return;
-}
+#define MAXCIDR 23
 
-void ip_to_int(char *cidr, unsigned int *network, int *prefix) {
-    /**
-     *  IPv4-подсеть можно разбить на диапазон целых чисел.
-     * Например, 192.168.1.0/31 это диапазон от 3232235776 до 3232235777
-     * Так как 31 подсеть имеет 2 адреса 192.168.1.0 и 192.168.1.1
-     * first_cidr_int = 3232235776
-     * last_cidr_int = 3232235777
-     * prefixlen = 31
-     * */
-    int i, n = 0;
-    int j = 0;
-    char a[4] = "\0";
-    char b[4] = "\0";
-    char c[4] = "\0";
-    char d[4] = "\0";
-    char netmask[3];
-    for (i = 0; cidr[i] != '\0'; i++) {
-        if (cidr[i] == 46) {
-            n++;
-            j = 0;
-            continue;
-        } else if (cidr[i] == 47) {
-            n = 4;
-            j = 0;
-            continue;
-        }
-        if (n == 0) {
-            a[j] = cidr[i];
-            j++;
-        } else if (n == 1) {
-            b[j] = cidr[i];
-            j++;
-        } else if (n == 2) {
-            c[j] = cidr[i];
-            j++;
-        } else if (n == 3) {
-            d[j] = cidr[i];
-            j++;
-        } else if (n == 4) {
-            netmask[j] = cidr[i];
-            j++;
-        }
-    }
-    *network = ((atoi(a) << 24) + (atoi(b) << 16) + (atoi(c) << 8) +
-    atoi(d));
-    *prefix = atoi(netmask);
-}
-
-static char *int_to_ip(unsigned int num) {
-    char *ipstr = (char *)malloc(16);
-    int a, b, c, d = 0;
-    a = (num >> 24) & 255;
-    b = (num >> 16) & 255;
-    c = (num >> 8) & 255;
-    d = num & 255;
-    snprintf(ipstr, 16, "%d.%d.%d.%d", a, b, c, d);
-    return ipstr;
-}
+/*Special prefix values.
+Important: INVALID_PREFIX must be < EXPANDED_PREFIX.
+EXPANDED_PREFIX + 32 must be < 255
+*/
+#define INVALID_PREFIX 200
+#define EXPANDED_PREFIX 220
 
 unsigned int optimize(struct network *addr, unsigned int len) {
     unsigned int i, cur;
@@ -176,10 +140,6 @@ unsigned int optimize(struct network *addr, unsigned int len) {
     } else {
         return i;
     }
-}
-
-void print_cidr(unsigned int network, int prefix) {
-    printf("%s/%d\n", int_to_ip(network), prefix);
 }
 
 static int STRCPY(char *dst, char *src) {
@@ -365,6 +325,86 @@ int get_entries(STREAM f, struct network **addr, unsigned int *size) {
     return i;
 }
 
+unsigned int print_address2(unsigned int net, unsigned char pref, char *buf,
+                            unsigned int pos) {
+    if (pref != INVALID_PREFIX) {
+        pos += STRCPY(buf + pos, dotted[net >> 24]);
+        buf[pos++] = '.';
+        pos += STRCPY(buf + pos, dotted[(net & MASK2) >> 16]);
+        buf[pos++] = '.';
+        pos += STRCPY(buf + pos, dotted[(net & MASK3) >> 8]);
+        buf[pos++] = '.';
+        pos += STRCPY(buf + pos, dotted[net & MASK4]);
+        buf[pos++] = '/';
+        pos += STRCPY(buf + pos, dotted[pref]);
+        buf[pos++] = '\n';
+    }
+    return pos;
+}
+void print_addresses(STREAM f, struct network *addr, int size,
+                     struct network *expanded, int level) {
+    int i = 0, pos = 0, len;
+    char buf[BUFFER];
+
+    if (level > 256) {
+        /*Sanity ckeck */
+        fprintf(
+            stderr,
+            "Array too nested: internal error, aborting. Please report this "
+            "issue together with input files to depetrini@libero.it\n");
+        exit(1);
+    }
+
+    while (i < size) {
+        if (addr[i].prefix < EXPANDED_PREFIX) {
+            pos = print_address2(addr[i].network, addr[i].prefix, buf, pos);
+            if (pos > BUFFER - MAXCIDR - 2) {
+                len = WRITE(f, buf, pos);
+                if (len < pos) {
+                    fprintf(stderr,
+                            "Written only %d bytes instead of %d, aborting\n",
+                            len, pos);
+                    exit(1);
+                }
+                pos = 0;
+            }
+        } else {
+            if (expanded == NULL) {
+                /*Sanity ckeck */
+                fprintf(
+                    stderr,
+                    "Expanded is NULL. Please report this issue together with "
+                    "input files and paramethers to depetrini@libero.it\n");
+                exit(1);
+            }
+            len = WRITE(f, buf, pos);
+            if (len < pos) {
+                fprintf(stderr,
+                        "Written only %d bytes instead of %d, aborting\n", len,
+                        pos);
+                exit(1);
+            }
+
+            pos = 0;
+            print_addresses(f, &(expanded[addr[i].network]),
+                            addr[i].prefix - EXPANDED_PREFIX, expanded,
+                            level + 1);
+        }
+
+        i++;
+    }
+
+    /* flush the buffer */
+    if (pos > 0) {
+        len = WRITE(f, buf, pos);
+        if (len < pos) {
+            fprintf(stderr, "Written only %d bytes instead of %d, aborting\n",
+                    len, pos);
+            exit(1);
+        }
+    }
+}
+
 int main() {
     unsigned int len1 = 0;
     unsigned int size1 = 0;
@@ -374,10 +414,7 @@ int main() {
     unsigned int a, subnet_cnt_f;
     a = 0;
     subnet_cnt_f = optimize(subnets, len1);
-    while (a < subnet_cnt_f) {
-        print_cidr(subnets[a].network, subnets[a].prefix);
-        a++;
-    }
+    print_addresses(STDOUT, subnets, subnet_cnt_f, NULL, 0);
     free(subnets);
     exit(EXIT_SUCCESS);
 }
